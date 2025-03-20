@@ -1,0 +1,100 @@
+---
+description: Apply these rules when creating the project
+globs:
+alwaysApply: true
+---
+## Project Overview
+
+*   **Type:** AI-Powered Real-Time Data Visualization & Manipulation Tool
+*   **Description:** A web-based application designed to simplify data analysis for users of all technical skill levels by allowing seamless dataset uploads, cleaning, AI-powered manipulation via natural language, and real-time interactive visualizations.
+*   **Primary Goal:** Enable financial analysts and business professionals to efficiently analyze and transform their data with minimal technical intervention through an intuitive, AI-integrated interface.
+
+## Project Structure
+
+### Framework-Specific Routing
+
+*   **Directory Rules:**
+
+    *   **Streamlit v1.x:** Utilize a primary `app.py` as the entry point with support for Streamlit Pages via the `pages/` directory for modular UI components.
+    *   **FastAPI v0.78+ (Backend):** Centralize API routes in `app/main.py` using APIRouter; segregate related endpoints into `app/routers/` for a clear separation of concerns.
+    
+### Core Directories
+
+*   **Versioned Structure:**
+
+    *   `app/api`: Contains FastAPI route handlers and business logic for endpoints such as `/upload`, `/modify`, `/data`, and `/visualize`.
+    *   `pages/`: Holds Streamlit page components for distinct views (e.g., Upload, Data Table, Visualization, Command Input).
+    *   `src/visualization`: Houses Plotly, Matplotlib/Seaborn chart configuration files and static exports logic.
+    *   `src/data`: Deals with data preprocessing, cleaning functions, and Pandas-based manipulations.
+
+### Key Files
+
+*   **Stack-Versioned Patterns:**
+
+    *   `app/api/main.py`: Serves as the FastAPI application entry point with integrated router modules for handling API endpoints.
+    *   `app.py`: Acts as the primary Streamlit file responsible for UI rendering and orchestrating the overall user experience.
+    *   `pages/data_upload.py`: Example file to manage drag-and-drop file uploads and initial data preprocessing.
+    *   `pages/data_visualization.py`: Implements interactive visualization panels using Plotly and static exports with Matplotlib/Seaborn.
+
+## Tech Stack Rules
+
+*   **Version Enforcement:**
+
+    *   **Streamlit@1.x:** Enforce a single entry point (`app.py`), encourage modular page layouts via the `pages/` directory, and leverage built-in caching where applicable.
+    *   **FastAPI@0.78+:** Utilize asynchronous route handlers, structured APIRouters for endpoint grouping, and adhere to PEP 8 for clean code practices.
+    *   **Pandas & NumPy:** Ensure efficient in-memory data manipulation and enforce data integrity checks as per PRD guidelines.
+    *   **OpenAI API:** Integrate and sandbox API calls to prevent blocking operations and ensure clear error messaging.
+    *   **CassandraDB:** Follow best practices around JSON storage and schema flexibility, ensuring smooth data persistence and retrieval.
+
+## PRD Compliance
+
+*   **Non-Negotiable:**
+
+    *   "Performance: AI command processing less than 2 seconds and visualization updates under 1 second." – Ensures real-time interactivity and high responsiveness throughout the user workflow.
+    *   "Data encryption at rest (AES-256) and in transit (TLS 1.3) for future cloud deployment." – Mandates adoption of strict security protocols even for local use.
+
+## App Flow Integration
+
+*   **Stack-Aligned Flow:**
+
+    *   Example: "User uploads data via the Streamlit UI (`app.py` / `pages/data_upload.py`) → FastAPI processes the upload (`app/api/main.py`), triggers data cleaning via Pandas, and then returns an initial dataset state → Visualization updated in real-time in `pages/data_visualization.py` using Plotly."
+
+## Best Practices
+
+*   **Streamlit**
+
+    *   Use caching (`st.cache_data` or `st.cache_resource`) to improve performance of repeated data operations.
+    *   Maintain modularity by splitting UI components into separate files within `pages/`.
+    *   Ensure responsive design and support for both light and dark themes.
+
+*   **FastAPI**
+
+    *   Utilize asynchronous programming to handle concurrent requests efficiently.
+    *   Organize routes using APIRouters to maintain clean endpoint segregation.
+    *   Write comprehensive unit and integration tests to meet performance and security requirements.
+
+*   **Pandas & NumPy**
+
+    *   Optimize data operations to ensure that processing stays within the required performance thresholds.
+    *   Validate input data meticulously to reduce the chance of runtime errors.
+    *   Leverage vectorized operations to handle large datasets effectively.
+
+*   **Plotly, Matplotlib & Seaborn**
+
+    *   Design interactive charts that update in real-time following data manipulation.
+    *   Provide fallback static export options (PNG/PDF) for visualizations.
+    *   Ensure charts are customizable and responsive to user-based natural language adjustments.
+
+*   **CassandraDB**
+
+    *   Adhere to recommended practices for JSON storage to maintain flexible data schemas.
+    *   Optimize read/write operations to support scalability as datasets grow.
+    *   Implement proper indexing strategies to ensure fast query response times.
+
+## Rules
+
+*   Derive folder/file patterns **directly** from tech stack version specifications, ensuring consistency across both frontend and backend.
+*   For Streamlit: Maintain a clear separation of view components in the `pages/` directory to mirror route-based logic.
+*   For FastAPI: Structure API endpoints within `app/api` and use APIRouter to modularize routes.
+*   Never mix version patterns; maintain a strict boundary between Streamlit page-based architecture and FastAPI endpoint design.
+*   Follow PRD guidelines for performance, security, and usability without exceptions.
