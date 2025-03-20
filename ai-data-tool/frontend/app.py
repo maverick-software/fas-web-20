@@ -1,6 +1,7 @@
 import streamlit as st
 import plotly.express as px
 import pandas as pd
+import numpy as np
 
 # Set page config for a clean, minimalist look
 st.set_page_config(
@@ -63,9 +64,24 @@ with col1:
                 df = pd.read_csv(uploaded_file)
             else:
                 df = pd.read_excel(uploaded_file)
+            
+            # Clean and prepare the DataFrame
+            # Convert any mixed-type columns to string first
+            for col in df.columns:
+                if df[col].dtype == 'object':
+                    # Check if column contains mixed types
+                    if df[col].apply(lambda x: isinstance(x, (float, int))).any():
+                        df[col] = df[col].astype(str)
+            
+            # Remove any unnamed columns
+            df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+            
+            # Display the cleaned DataFrame
             st.dataframe(df)
+            
         except Exception as e:
             st.error(f"Error reading file: {str(e)}")
+            st.error("Please check if your file contains valid data and try again.")
 
 with col2:
     st.subheader("Visualization")
