@@ -12,24 +12,40 @@ import numpy as np
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def get_excel_sheets(file_obj: Union[str, bytes]) -> List[str]:
+def get_excel_sheets(file) -> List[str]:
+    """Get list of sheet names from Excel file"""
+    return pd.ExcelFile(file).sheet_names
+
+def convert_to_csv(file, filename: str, sheet_name: str = None, progress_callback: Callable = None) -> Tuple[str, str]:
     """
-    Gets the list of sheet names from an Excel file.
+    Convert uploaded file to CSV
+    Returns tuple of (file_path, file_name)
+    """
+    # Create temporary file
+    temp_dir = tempfile.gettempdir()
+    base_name = os.path.splitext(filename)[0]
+    csv_filename = f"{base_name}_{sheet_name}.csv" if sheet_name else f"{base_name}.csv"
+    csv_path = os.path.join(temp_dir, csv_filename)
     
-    Args:
-        file_obj: The uploaded Excel file object
-        
-    Returns:
-        List[str]: List of sheet names
-    """
-    try:
-        excel_file = pd.ExcelFile(file_obj)
-        sheet_names = excel_file.sheet_names
-        logger.info(f"Found {len(sheet_names)} sheets: {', '.join(sheet_names)}")
-        return sheet_names
-    except Exception as e:
-        logger.error(f"Error reading Excel sheets: {str(e)}")
-        raise Exception(f"Error reading Excel sheets: {str(e)}")
+    if progress_callback:
+        progress_callback(0.2, "Reading file...")
+    
+    # Read file
+    if filename.endswith('.xlsx'):
+        df = pd.read_excel(file, sheet_name=sheet_name)
+    else:
+        df = pd.read_csv(file)
+    
+    if progress_callback:
+        progress_callback(0.6, "Converting to CSV...")
+    
+    # Save as CSV
+    df.to_csv(csv_path, index=False)
+    
+    if progress_callback:
+        progress_callback(1.0, "Conversion complete")
+    
+    return csv_path, csv_filename
 
 def convert_single_sheet(file, sheet_name, temp_dir, base_name, log_and_update):
     """Convert a single Excel sheet to CSV with enhanced error handling and validation"""
@@ -203,32 +219,14 @@ def convert_csv_file(file_obj: Union[str, bytes], temp_dir: str, base_name: str,
         logger.error(f"Error in convert_csv_file: {str(e)}")
         raise
 
-def clean_dataframe(df):
-    """Clean and prepare DataFrame for CSV conversion"""
-    try:
-        # Drop completely empty rows and columns
-        df = df.dropna(how='all').dropna(axis=1, how='all')
-        
-        # Clean up column names
-        df.columns = [str(col).strip() for col in df.columns]
-        
-        # Replace empty strings with NaN
-        df = df.replace(r'^\s*$', np.nan, regex=True)
-        
-        # Convert object columns containing only numbers to numeric
-        for col in df.select_dtypes(include=['object']).columns:
-            try:
-                numeric_conversion = pd.to_numeric(df[col], errors='coerce')
-                if not numeric_conversion.isna().all():  # If some values converted successfully
-                    df[col] = numeric_conversion
-            except:
-                pass
-                
-        # Convert remaining object columns to string
-        for col in df.select_dtypes(include=['object']).columns:
-            df[col] = df[col].astype(str)
-            
-        return df
-        
-    except Exception as e:
-        raise Exception(f"Error cleaning DataFrame: {str(e)}") 
+def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Clean and prepare DataFrame"""
+    # Remove empty rows and columns
+    df = df.dropna(how='all')
+    df = df.dropna(axis=1, how='all')
+    
+    # Convert column names to string and clean them
+    df.columns = df.columns.astype(str)
+    df.columns = [col.strip() for col in df.columns]
+    
+    return df 
