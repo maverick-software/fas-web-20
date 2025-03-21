@@ -3,7 +3,7 @@ echo Starting Financial Analysis System v2.0...
 echo.
 
 :: Change to the frontend directory
-cd "%~dp0frontend"
+cd frontend
 echo Changed to frontend directory: %CD%
 echo.
 
@@ -60,7 +60,7 @@ if %ERRORLEVEL% NEQ 0 (
 
 :: Install required packages
 echo Installing required packages...
-pip install streamlit plotly pandas numpy openpyxl
+pip install --only-binary :all: -r requirements.txt
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Failed to install required packages.
     goto :error

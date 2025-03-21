@@ -3,7 +3,7 @@ echo Starting Financial Analysis System v2.0 Backend...
 echo.
 
 :: Change to the backend directory
-cd "%~dp0backend"
+cd backend
 echo Changed to backend directory: %CD%
 echo.
 
@@ -69,7 +69,16 @@ if %ERRORLEVEL% NEQ 0 (
 
 :: Install required packages
 echo Installing required packages...
-python -m pip install fastapi uvicorn pandas
+echo fastapi>=0.68.0,<0.69.0 > requirements.txt
+echo uvicorn>=0.15.0,<0.16.0 >> requirements.txt
+echo pandas>=2.2.0,<2.3.0 >> requirements.txt
+echo numpy>=1.24.0,<1.27.0 >> requirements.txt
+echo cassandra-driver>=3.25.0,<3.26.0 >> requirements.txt
+echo openai>=0.27.0,<0.28.0 >> requirements.txt
+echo python-dotenv>=0.19.0,<0.20.0 >> requirements.txt
+echo pydantic>=1.8.0,<1.9.0 >> requirements.txt
+
+python -m pip install --only-binary :all: -r requirements.txt
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Failed to install required packages.
     goto :error
