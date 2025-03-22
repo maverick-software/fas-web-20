@@ -3,6 +3,59 @@ import pandas as pd
 from datetime import datetime
 from components.visualization.budget_charts import BudgetVisualization
 
+def process_excel_file(file, file_type: str = "budget"):
+    """Process Excel file with multiple sheets"""
+    # Read all sheets
+    xl = pd.ExcelFile(file)
+    
+    # Initialize empty list to store processed data
+    processed_data = []
+    
+    # Process each sheet
+    for sheet_name in xl.sheet_names:
+        try:
+            # Skip sheets that don't look like monthly data
+            if sheet_name.lower() in ['instructions', 'reference', 'template']:
+                continue
+                
+            # Read the sheet
+            df = pd.read_excel(file, sheet_name=sheet_name)
+            
+            # Try to extract date from sheet name or look for date column
+            try:
+                # First try to parse sheet name as date
+                sheet_date = pd.to_datetime(sheet_name)
+            except:
+                # If sheet name isn't a date, look for a date column
+                date_cols = df.columns[df.columns.str.contains('date|month|period', case=False)]
+                if len(date_cols) > 0:
+                    sheet_date = pd.to_datetime(df[date_cols[0]].iloc[0])
+                else:
+                    st.warning(f"Could not determine date for sheet: {sheet_name}. Skipping.")
+                    continue
+            
+            # Add period column if it doesn't exist
+            if 'period' not in df.columns:
+                df['period'] = sheet_date
+            
+            # Add sheet name for reference
+            df['sheet_name'] = sheet_name
+            df['data_type'] = file_type
+            
+            processed_data.append(df)
+            
+        except Exception as e:
+            st.warning(f"Error processing sheet {sheet_name}: {str(e)}")
+            continue
+    
+    if not processed_data:
+        st.error("No valid data sheets found in the file.")
+        return None
+    
+    # Combine all sheets
+    combined_data = pd.concat(processed_data, ignore_index=True)
+    return combined_data
+
 def render_budget_dashboard():
     st.title("Budget Analysis Dashboard")
     
@@ -12,58 +65,92 @@ def render_budget_dashboard():
     # File upload section
     st.header("Data Import")
     
+    st.info("""
+    Upload your budget and actual data files. Each file should be an Excel workbook (.xlsx) containing multiple monthly sheets.
+    
+    **File Format Requirements:**
+    - Each workbook should contain monthly data in separate sheets
+    - Sheet names can be dates (e.g., '2024-01') or standard names (e.g., 'January 2024')
+    - Each sheet should have consistent column names across all months
+    """)
+    
     col1, col2 = st.columns(2)
     
     with col1:
         budget_file = st.file_uploader(
-            "Upload Budget Data (Excel/CSV)",
-            type=["xlsx", "csv"],
-            key="budget_upload"
+            "Upload Budget Data (Excel workbook)",
+            type=["xlsx"],
+            key="budget_upload",
+            help="Select an Excel file containing monthly budget data in separate sheets"
         )
+        if budget_file:
+            st.success(f"✓ Budget file '{budget_file.name}' uploaded successfully")
         
     with col2:
         actual_file = st.file_uploader(
-            "Upload Actual Data (Excel/CSV)",
-            type=["xlsx", "csv"],
-            key="actual_upload"
+            "Upload Actual Data (Excel workbook)",
+            type=["xlsx"],
+            key="actual_upload",
+            help="Select an Excel file containing monthly actual data in separate sheets"
         )
-        
+        if actual_file:
+            st.success(f"✓ Actual file '{actual_file.name}' uploaded successfully")
+    
+    if budget_file is not None or actual_file is not None:
+        if budget_file is None:
+            st.warning("⚠️ Please upload the budget data file")
+        if actual_file is None:
+            st.warning("⚠️ Please upload the actual data file")
+            
     if budget_file is not None and actual_file is not None:
         try:
-            # Load data
-            if budget_file.name.endswith('.csv'):
-                budget_data = pd.read_csv(budget_file)
-            else:
-                budget_data = pd.read_excel(budget_file)
+            # Process both files
+            with st.spinner("Processing budget data..."):
+                budget_data = process_excel_file(budget_file, "budget")
+            with st.spinner("Processing actual data..."):
+                actual_data = process_excel_file(actual_file, "actual")
+            
+            if budget_data is None or actual_data is None:
+                st.error("Please ensure both files contain valid monthly data sheets.")
+                return
                 
-            if actual_file.name.endswith('.csv'):
-                actual_data = pd.read_csv(actual_file)
-            else:
-                actual_data = pd.read_excel(actual_file)
+            # Show data preview
+            st.subheader("Data Preview")
+            col1, col2 = st.columns(2)
+            with col1:
+                budget_sheets = budget_data['sheet_name'].unique()
+                st.write("Budget Data Sheets:", len(budget_sheets), "sheets found")
+                st.write(sorted(budget_sheets))
+            with col2:
+                actual_sheets = actual_data['sheet_name'].unique()
+                st.write("Actual Data Sheets:", len(actual_sheets), "sheets found")
+                st.write(sorted(actual_sheets))
                 
+            # Check for sheet count mismatch
+            if len(budget_sheets) != len(actual_sheets):
+                st.warning(f"⚠️ Number of sheets differs between budget ({len(budget_sheets)}) and actual ({len(actual_sheets)}) data")
+            
             # Configuration section
             st.header("Analysis Configuration")
             
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                date_col = st.selectbox(
-                    "Select Date Column",
-                    budget_data.columns,
-                    key="date_column"
-                )
+                # Always use 'period' as date column
+                date_col = 'period'
+                st.info(f"Using '{date_col}' as date column")
                 
             with col2:
                 category_col = st.selectbox(
                     "Select Category Column",
-                    budget_data.columns,
+                    [col for col in budget_data.columns if col not in ['period', 'sheet_name', 'data_type']],
                     key="category_column"
                 )
                 
             with col3:
                 amount_cols = st.multiselect(
                     "Select Amount Columns",
-                    budget_data.columns,
+                    [col for col in budget_data.columns if col not in ['period', 'sheet_name', 'data_type', category_col]],
                     key="amount_columns"
                 )
                 
@@ -182,21 +269,31 @@ def render_budget_dashboard():
                         if col.endswith(('_budget', '_actual', '_variance'))
                     }).reset_index()
                     
+                    # Format YTD data with custom styling
+                    def style_negative_values(val):
+                        """Style negative values in red, positive in green"""
+                        if isinstance(val, (int, float)):
+                            color = 'red' if val < 0 else 'green' if val > 0 else 'white'
+                            return f'color: {color}'
+                        return ''
+
+                    # Apply styling to variance columns
+                    variance_cols = [col for col in ytd_data.columns if col.endswith('_variance')]
+                    styled_ytd = ytd_data.style.applymap(
+                        style_negative_values,
+                        subset=variance_cols
+                    ).format({
+                        col: "{:,.2f}" for col in ytd_data.select_dtypes(include=['float64']).columns
+                    })
+                    
                     # Display YTD data
-                    st.dataframe(
-                        ytd_data.style.background_gradient(
-                            cmap='RdYlGn',
-                            subset=[col for col in ytd_data.columns
-                                   if col.endswith('_variance')]
-                        ),
-                        height=400
-                    )
+                    st.dataframe(styled_ytd, height=400)
                     
         except Exception as e:
             st.error(f"Error processing data: {str(e)}")
             
     else:
-        st.info("Please upload both budget and actual data files to begin analysis.")
+        st.info("Please upload both budget and actual data files to begin analysis. Each file should contain monthly sheets.")
 
 # Call the dashboard render function
 if __name__ == "__main__":
